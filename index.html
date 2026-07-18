@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Block of Love 💖</title>
+<style>
+  :root{
+    --bg1:#1b1030;
+    --bg2:#2a1650;
+    --accent:#ff5c8a;
+    --accent2:#ff9bc0;
+    --gold:#ffd76b;
+    --card:rgba(255,255,255,0.08);
+    --cell:rgba(255,255,255,0.06);
+    --radius:16px;
+    --shadow:0 10px 30px rgba(0,0,0,0.35);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;margin:0;}
+  body{
+    font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif;
+    background:radial-gradient(1200px 800px at 50% -10%, var(--bg2), var(--bg1));
+    color:#fff;
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+    user-select:none;
+    touch-action:none;
+  }
+  #app{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+
+  .screen{
+    position:absolute;inset:0;display:none;
+    flex-direction:column;align-items:center;justify-content:center;
+    padding:24px;text-align:center;gap:18px;
+    animation:fadeIn .6s ease;
+  }
+  .screen.active{display:flex;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+
+  h1{font-size:clamp(30px,9vw,54px);margin:0;font-weight:800;letter-spacing:.5px;
+     background:linear-gradient(90deg,var(--accent),var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent;}
+  h2{font-size:clamp(20px,5vw,30px);margin:0 0 6px;font-weight:700;}
+  p{font-size:clamp(15px,3.6vw,18px);line-height:1.55;max-width:560px;margin:6px 0;opacity:.92;}
+  .muted{opacity:.7;font-size:14px;}
+
+  .btn{
+    border:none;cursor:pointer;font-family:inherit;font-weight:700;
+    padding:15px 34px;border-radius:999px;font-size:18px;color:#fff;
+    background:linear-gradient(135deg,var(--accent),#ff7aa8);
+    box-shadow:0 10px 24px rgba(255,92,138,.4);
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .btn:active{transform:scale(.96);}
+  .btn.secondary{background:rgba(255,255,255,.14);box-shadow:none;}
+  .btn.gold{background:linear-gradient(135deg,var(--gold),#ffcf4d);color:#3a2a00;box-shadow:0 10px 24px rgba(255,215,107,.4);}
+
+  /* Loading */
+  .logo{
+    width:120px;height:120px;border-radius:30px;display:flex;align-items:center;justify-content:center;
+    font-size:64px;background:linear-gradient(135deg,#ff5c8a,#ffd76b);box-shadow:var(--shadow);
+    animation:pulse 1.8s ease-in-out infinite;
+  }
+  @keyframes pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.06);}}
+  .loadbar{width:min(340px,80vw);height:10px;border-radius:999px;background:rgba(255,255,255,.12);overflow:hidden;}
+  .loadbar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--gold));transition:width .3s ease;}
+  #loadStatus{min-height:22px;font-size:15px;opacity:.85;}
+
+  /* Game HUD */
+  #gameScreen{justify-content:flex-start;gap:12px;padding-top:max(16px,env(safe-area-inset-top));}
+  .hud{width:min(460px,94vw);display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:6px;}
+  .stat{background:var(--card);border-radius:14px;padding:8px 16px;text-align:center;min-width:90px;box-shadow:var(--shadow);}
+  .stat b{display:block;font-size:22px;line-height:1.1;}
+  .stat span{font-size:11px;text-transform:uppercase;letter-spacing:1px;opacity:.7;}
+
+  .wordtrack{width:min(460px,94vw);display:flex;flex-wrap:wrap;gap:6px;justify-content:center;min-height:26px;}
+  .wordchip{padding:4px 12px;border-radius:999px;font-weight:700;font-size:15px;
+    background:rgba(255,255,255,.08);opacity:.25;transition:all .5s ease;}
+  .wordchip.revealed{opacity:1;background:linear-gradient(135deg,var(--accent),var(--gold));color:#3a1a2a;transform:scale(1.05);box-shadow:0 6px 16px rgba(255,92,138,.5);}
+
+  #boardWrap{position:relative;width:min(460px,94vw);}
+  #board{
+    width:100%;aspect-ratio:1;display:grid;gap:4px;
+    background:rgba(0,0,0,.22);border-radius:var(--radius);padding:8px;box-shadow:var(--shadow);
+  }
+  .cell{border-radius:8px;background:var(--cell);transition:background .12s ease;}
+  .cell.filled{box-shadow:inset 0 -3px 6px rgba(0,0,0,.25),inset 0 2px 4px rgba(255,255,255,.25);}
+  .cell.ghost{outline:2px dashed rgba(255,255,255,.5);outline-offset:-3px;}
+  .cell.invalid{outline:2px dashed rgba(255,80,80,.7);outline-offset:-3px;}
+  .cell.clearing{animation:clearPop .4s ease forwards;}
+  @keyframes clearPop{0%{transform:scale(1);}40%{transform:scale(1.15);filter:brightness(1.6);}100%{transform:scale(0);opacity:0;}}
+  .cell.heart{position:relative;}
+  .cell.heart::after{content:"♥";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:min(4.5vw,22px);color:rgba(255,255,255,.9);}
+
+  #tray{width:min(460px,94vw);display:flex;justify-content:space-around;align-items:center;gap:8px;min-height:96px;
+    background:var(--card);border-radius:var(--radius);padding:10px;box-shadow:var(--shadow);}
+  .piece{display:grid;gap:3px;cursor:grab;padding:4px;border-radius:10px;transition:transform .12s ease;}
+  .piece:active{cursor:grabbing;}
+  .piece.used{opacity:0;pointer-events:none;}
+  .pcell{width:min(5vw,22px);height:min(5vw,22px);border-radius:5px;}
+  .pcell.empty{background:transparent;}
+
+  /* drag layer */
+  #dragLayer{position:fixed;inset:0;pointer-events:none;z-index:50;}
+  #dragPiece{position:absolute;display:grid;gap:4px;transform:translate(-50%,-50%);opacity:.95;filter:drop-shadow(0 8px 16px rgba(0,0,0,.4));}
+
+  /* Reveal */
+  #revealScreen p.love{font-size:clamp(16px,4.2vw,20px);max-width:600px;}
+  .bigq{font-size:clamp(26px,7vw,42px);font-weight:800;margin-top:10px;
+    background:linear-gradient(90deg,var(--accent),var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .choices{display:flex;gap:18px;align-items:center;justify-content:center;flex-wrap:wrap;margin-top:14px;position:relative;height:70px;width:min(460px,90vw);}
+  #noBtn{position:relative;transition:transform .18s ease;}
+
+  /* Gallery */
+  #galleryScreen{padding:0;}
+  .slide{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:30px;
+    opacity:0;transition:opacity 1s ease;pointer-events:none;}
+  .slide.active{opacity:1;pointer-events:auto;}
+  .photo{width:min(420px,82vw);aspect-ratio:4/3;border-radius:20px;box-shadow:var(--shadow);object-fit:cover;
+    background:linear-gradient(135deg,#ff9bc0,#ffd76b);display:flex;align-items:center;justify-content:center;font-size:70px;overflow:hidden;}
+  .photo img{width:100%;height:100%;object-fit:cover;}
+  .caption{font-size:clamp(16px,4vw,20px);font-weight:600;max-width:460px;}
+  .galleryNav{position:absolute;bottom:26px;left:0;right:0;display:flex;justify-content:center;gap:14px;z-index:5;}
+  .dot{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.3);}
+  .dot.active{background:var(--accent);}
+
+  /* floating hearts + confetti canvas */
+  #fx{position:fixed;inset:0;pointer-events:none;z-index:60;}
+  .floatHeart{position:fixed;font-size:26px;pointer-events:none;z-index:61;animation:floatUp 3s ease-out forwards;}
+  @keyframes floatUp{0%{transform:translateY(0) scale(.6);opacity:0;}15%{opacity:1;}100%{transform:translateY(-120vh) scale(1.2);opacity:0;}}
+
+  /* toast / secret */
+  #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(120%);
+    background:rgba(0,0,0,.8);padding:12px 20px;border-radius:999px;z-index:80;transition:transform .4s ease;font-size:15px;}
+  #toast.show{transform:translateX(-50%) translateY(0);}
+
+  /* dev page */
+  .panel{background:var(--card);border-radius:var(--radius);padding:22px;max-width:520px;width:92vw;box-shadow:var(--shadow);text-align:left;}
+  .panel h3{margin:0 0 8px;color:var(--gold);}
+  .panel ul{margin:6px 0;padding-left:20px;line-height:1.7;}
+  .cornerBtns{position:fixed;top:10px;right:10px;display:flex;gap:8px;z-index:40;}
+  .icoBtn{background:rgba(255,255,255,.1);border:none;color:#fff;width:38px;height:38px;border-radius:10px;font-size:16px;cursor:pointer;}
+  .backBtn{margin-top:16px;}
+
+  .hint{font-size:13px;opacity:.6;margin-top:4px;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- PHASE 1: LOADING -->
+  <section id="loadScreen" class="screen active">
+    <div class="logo" id="logo">💖</div>
+    <h1>Block of Love</h1>
+    <p class="muted">A little puzzle... with a big heart.</p>
+    <div class="loadbar"><i id="loadFill"></i></div>
+    <div id="loadStatus">Starting up…</div>
+    <button id="startBtn" class="btn" style="display:none;">Start</button>
+  </section>
+
+  <!-- PHASE 2: TUTORIAL -->
+  <section id="tutorialScreen" class="screen">
+    <h1>How to Play</h1>
+    <div class="panel" style="text-align:center;">
+      <p>🧩 <b>Drag blocks</b> from the tray onto the board.</p>
+      <p>✨ <b>Complete a full row or column</b> to clear it.</p>
+      <p>🏆 <b>Score as high as you can</b> — beat your best!</p>
+    </div>
+    <button id="tutStartBtn" class="btn gold">Let's Play</button>
+    <p class="hint">Tip: rotate your thinking, not the blocks 😉</p>
+  </section>
+
+  <!-- PHASE 3-6: GAME -->
+  <section id="gameScreen" class="screen">
+    <div class="hud">
+      <div class="stat"><b id="scoreVal">0</b><span>Score</span></div>
+      <div class="stat"><b id="bestVal">0</b><span>Best</span></div>
+      <div class="stat"><b id="linesVal">0</b><span>Lines</span></div>
+    </div>
+    <div class="wordtrack" id="wordTrack"></div>
+    <div id="boardWrap"><div id="board"></div></div>
+    <div id="tray"></div>
+  </section>
+
+  <!-- PHASE 7: REVEAL -->
+  <section id="revealScreen" class="screen">
+    <h1 id="revealName">For You 💗</h1>
+    <p class="love" id="revealMsg"></p>
+    <div class="bigq">Will you officially be my girlfriend?</div>
+    <div class="choices">
+      <button id="yesBtn" class="btn gold" style="font-size:22px;padding:16px 44px;">Yes 💍</button>
+      <button id="noBtn" class="btn secondary">No</button>
+    </div>
+  </section>
+
+  <!-- PHASE 9: CELEBRATION -->
+  <section id="celebrateScreen" class="screen">
+    <h1>She said YES! 🎉</h1>
+    <p>You just made me the happiest person alive. 💖</p>
+    <button id="toGalleryBtn" class="btn" style="display:none;">See our memories →</button>
+  </section>
+
+  <!-- PHASE 10: GALLERY -->
+  <section id="galleryScreen" class="screen">
+    <div id="slides"></div>
+    <div class="galleryNav" id="galleryDots"></div>
+  </section>
+
+  <!-- DEV PAGE -->
+  <section id="devScreen" class="screen">
+    <div class="panel">
+      <h3>👨‍💻 Secret Developer Notes</h3>
+      <p>Hi. If you're reading this, you found the hidden page. 😄</p>
+      <ul>
+        <li>Lines of code written at 2am: <b>a lot</b></li>
+        <li>Cups of coffee consumed: <b>∞</b></li>
+        <li>Times I second-guessed the color scheme: <b>47</b></li>
+        <li>Reason it was all worth it: <b>you</b></li>
+      </ul>
+      <p class="muted">This whole thing was built by hand, block by block — kind of like us.</p>
+    </div>
+    <button class="btn secondary backBtn" onclick="hideOverlay('devScreen')">← Back</button>
+  </section>
+
+  <!-- STATS PAGE -->
+  <section id="statsScreen" class="screen">
+    <div class="panel">
+      <h3>🏅 Our Playful Achievements</h3>
+      <ul>
+        <li>Number of times you made me smile: <b>uncountable</b></li>
+        <li>Favourite adventure together: <b>every single one</b></li>
+        <li>Best high score in my heart: <b>you 💯</b></li>
+        <li>Longest laugh streak: <b>still going</b></li>
+        <li>Days I'm grateful for you: <b>all of them</b></li>
+      </ul>
+    </div>
+    <button class="btn secondary backBtn" onclick="hideOverlay('statsScreen')">← Back</button>
+  </section>
+
+</div>
+
+<!-- drag + fx layers -->
+<div id="dragLayer"><div id="dragPiece" style="display:none;"></div></div>
+<canvas id="fx"></canvas>
+<div id="toast"></div>
+
+<div class="cornerBtns">
+  <button class="icoBtn" id="soundBtn" title="Sound">🔊</button>
+  <button class="icoBtn" id="statsBtn" title="Stats">🏅</button>
+</div>
+
+<script>
+/* =========================================================
+   BLOCK OF LOVE — a puzzle that becomes a proposal.
+   Single-file. No external assets. Mobile + desktop.
+   ---------------------------------------------------------
+   ❤️ CUSTOMIZE HERE:
+========================================================= */
+const CONFIG = {
+  herName: "For You 💗",                 // shown on the reveal screen
+  personalMessage:
+    "Every piece you placed, every line you cleared — it was all quietly leading here. " +
+    "You didn't just play a game tonight… you played your way straight into this moment. " +
+    "You make ordinary days feel like an adventure, and I don't want to imagine a single one without you.",
+  proposalWords: ["Will", "You", "Be", "My", "Girlfriend?"],
+  // Memory gallery. Replace 'emoji' with an image URL by setting img:"https://..." (or a base64 data URL).
+  memories: [
+    { emoji:"🌅", img:null, caption:"The day everything started." },
+    { emoji:"🍜", img:null, caption:"That little place we can't stop going back to." },
+    { emoji:"🎢", img:null, caption:"The adventure where you laughed the whole way." },
+    { emoji:"🌧️", img:null, caption:"Dancing when we probably should've run for cover." },
+    { emoji:"⭐", img:null, caption:"The night we stayed up way too late talking." },
+    { emoji:"💖", img:null, caption:"And every moment still waiting for us." }
+  ]
+};
+/* ========================================================= */
+
+const GRID = 8;
+const SECRET_AFTER_LINES = 6;   // gameplay stays fully normal until this many lines cleared
+const WORD_EVERY_CLEARS   = 2;  // reveal a proposal word roughly every N clear-events after secret mode
+
+let board = [];        // GRID x GRID, null or color string
+let pieces = [];        // current tray pieces
+let score = 0, best = 0, linesCleared = 0, clearEvents = 0;
+let secretMode = false, warmth = 0, wordsRevealed = 0, gameOver = false;
+let logoTaps = 0, typedBuffer = "";
+
+const PALETTE = ["#ff5c8a","#ff9bc0","#ffd76b","#7ad0ff","#9b8cff","#7be2b3","#ffa86b"];
+const HEART_PALETTE = ["#ff5c8a","#ff7aa8","#ff9bc0","#ffb3d1"];
+
+/* ---------- Piece shapes ---------- */
+const SHAPES = {
+  single:[[1]],
+  d2:[[1,1]], d2v:[[1],[1]],
+  d3:[[1,1,1]], d3v:[[1],[1],[1]],
+  sq:[[1,1],[1,1]],
+  L:[[1,0],[1,0],[1,1]], J:[[0,1],[0,1],[1,1]],
+  T:[[1,1,1],[0,1,0]], S:[[0,1,1],[1,1,0]], Z:[[1,1,0],[0,1,1]],
+  d4:[[1,1,1,1]], d4v:[[1],[1],[1],[1]],
+  corner:[[1,1],[1,0]], bigL:[[1,0,0],[1,0,0],[1,1,1]],
+  plus:[[0,1,0],[1,1,1],[0,1,0]]
+};
+const SHAPE_KEYS = Object.keys(SHAPES);
+
+/* Shapes we bias toward in secret mode: small, flexible pieces that let her
+   keep clearing easily ("an unusually lucky game"). */
+const LUCKY_KEYS = ["single","d2","d2v","d3","d3v","sq","corner","L","J","T"];
+
+/* =========================================================
+   AUDIO (Web Audio API — no files needed)
+========================================================= */
+let AC=null, musicGain=null, soundOn=true, musicTimer=null, musicStep=0;
+function audio(){ if(!AC){ try{ AC=new (window.AudioContext||window.webkitAudioContext)(); musicGain=AC.createGain(); musicGain.gain.value=0.0; musicGain.connect(AC.destination);}catch(e){} } return AC; }
+function beep(freq,dur=0.12,type="sine",vol=0.15){
+  if(!soundOn||!audio())return;
+  const o=AC.createOscillator(), g=AC.createGain();
+  o.type=type;o.frequency.value=freq;o.connect(g);g.connect(AC.destination);
+  const t=AC.currentTime;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+dur);o.start(t);o.stop(t+dur+0.02);
+}
+function chord(freqs,dur=0.4,vol=0.12){ freqs.forEach(f=>beep(f,dur,"triangle",vol)); }
+// gentle background loop; gets "warmer" as warmth increases
+const MELODY=[523.25,587.33,659.25,783.99,659.25,587.33];
+function startMusic(){
+  if(!audio()||musicTimer)return;
+  musicGain.gain.linearRampToValueAtTime(0.06,AC.currentTime+2);
+  musicTimer=setInterval(()=>{
+    if(!soundOn)return;
+    const base=MELODY[musicStep%MELODY.length];
+    const warm=1-Math.min(warmth,1)*0.08; // pitch settles slightly warmer
+    const o=AC.createOscillator(),g=AC.createGain();
+    o.type=warmth>0.4?"sine":"triangle";
+    o.frequency.value=base*warm*(warmth>0.6?0.5:1)+ (warmth>0.6? base*warm:0);
+    o.frequency.value=base*warm; o.connect(g);g.connect(musicGain);
+    const t=AC.currentTime;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.5,t+0.05);
+    g.gain.exponentialRampToValueAtTime(0.001,t+0.5);o.start(t);o.stop(t+0.55);
+    if(warmth>0.3){ // add a soft harmony as it becomes romantic
+      const h=AC.createOscillator(),hg=AC.createGain();h.type="sine";h.frequency.value=base*warm*1.5;
+      h.connect(hg);hg.connect(musicGain);hg.gain.setValueAtTime(0,t);hg.gain.linearRampToValueAtTime(0.25*warmth,t+0.05);
+      hg.gain.exponentialRampToValueAtTime(0.001,t+0.6);h.start(t);h.stop(t+0.65);
+    }
+    musicStep++;
+  },520);
+}
+function romanticSwell(){ if(!audio())return; musicGain.gain.linearRampToValueAtTime(0.12,AC.currentTime+3); }
+
+/* =========================================================
+   PHASE 1 — LOADING
+========================================================= */
+const loadMessages=[
+  "Checking compatibility… 100% adorable ✔",
+  "Loading memories…",
+  "Warming up the blocks…",
+  "Calibrating fun levels 🎯",
+  "Preparing the adventure…",
+  "Adding a little extra sparkle ✨",
+  "Almost there…"
+];
+function runLoader(){
+  const fill=document.getElementById("loadFill");
+  const status=document.getElementById("loadStatus");
+  let p=0,i=0;
+  const iv=setInterval(()=>{
+    p+=Math.random()*14+6; if(p>100)p=100;
+    fill.style.width=p+"%";
+    if(i<loadMessages.length && p> (i+1)*(100/loadMessages.length)-8){ status.textContent=loadMessages[i]; i++; }
+    if(p>=100){
+      clearInterval(iv);
+      status.textContent="Ready when you are 💕";
+      document.getElementById("startBtn").style.display="inline-block";
+    }
+  },430);
+}
+document.getElementById("startBtn").onclick=()=>{ audio(); go("tutorialScreen"); };
+document.getElementById("tutStartBtn").onclick=()=>{ startGame(); };
+
+/* =========================================================
+   SCREEN ROUTER
+========================================================= */
+function go(id){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+}
+function showOverlay(id){ document.getElementById(id).classList.add("active"); }
+function hideOverlay(id){ document.getElementById(id).classList.remove("active"); }
+
+/* =========================================================
+   PHASE 3 — GAME SETUP
+========================================================= */
+function startGame(){
+  board=Array.from({length:GRID},()=>Array(GRID).fill(null));
+  score=0;linesCleared=0;clearEvents=0;secretMode=false;warmth=0;wordsRevealed=0;gameOver=false;
+  best=parseInt(localStorage.getItem("blockLoveBest")||"0",10);
+  document.getElementById("bestVal").textContent=best;
+  buildBoardDOM();
+  buildWordTrack();
+  refillTray();
+  updateHUD();
+  go("gameScreen");
+  startMusic();
+}
+
+function buildBoardDOM(){
+  const el=document.getElementById("board");
+  el.style.gridTemplateColumns=`repeat(${GRID},1fr)`;
+  el.innerHTML="";
+  for(let r=0;r<GRID;r++)for(let c=0;c<GRID;c++){
+    const d=document.createElement("div");
+    d.className="cell";d.dataset.r=r;d.dataset.c=c;
+    el.appendChild(d);
+  }
+  renderBoard();
+}
+function cellAt(r,c){ return document.querySelector(`#board .cell[data-r="${r}"][data-c="${c}"]`); }
+
+function renderBoard(){
+  for(let r=0;r<GRID;r++)for(let c=0;c<GRID;c++){
+    const d=cellAt(r,c);const v=board[r][c];
+    d.classList.remove("filled","heart","ghost","invalid");
+    if(v){ d.classList.add("filled"); d.style.background=v.color;
+      if(v.heart)d.classList.add("heart"); }
+    else d.style.background="";
+  }
+}
+
+function buildWordTrack(){
+  const t=document.getElementById("wordTrack");t.innerHTML="";
+  CONFIG.proposalWords.forEach((w,i)=>{
+    const c=document.createElement("div");c.className="wordchip";c.id="word"+i;c.textContent=w;
+    t.appendChild(c);
+  });
+}
+function updateHUD(){
+  document.getElementById("scoreVal").textContent=score;
+  document.getElementById("linesVal").textContent=linesCleared;
+  document.getElementById("bestVal").textContent=best;
+}
+
+/* =========================================================
+   PIECE GENERATION  (Phase 4 secret bias lives here)
+========================================================= */
+function shapeCells(shape){
+  const cells=[];
+  for(let r=0;r<shape.length;r++)for(let c=0;c<shape[r].length;c++)if(shape[r][c])cells.push([r,c]);
+  return cells;
+}
+function makePiece(key){
+  const shape=SHAPES[key];
+  const pal=secretMode?HEART_PALETTE:PALETTE;
+  const color=pal[Math.floor(Math.random()*pal.length)];
+  return { key, shape, cells:shapeCells(shape), color, heart: secretMode && Math.random()<Math.min(0.15+warmth*0.6,0.8), used:false };
+}
+function pickPieceKey(){
+  if(!secretMode) return SHAPE_KEYS[Math.floor(Math.random()*SHAPE_KEYS.length)];
+  // Secret mode: strongly favour small, flexible "lucky" shapes so she keeps clearing.
+  if(Math.random()<0.82){
+    // try to pick a piece that CAN currently be placed to complete a line
+    const helpful=findHelpfulKey();
+    if(helpful) return helpful;
+    return LUCKY_KEYS[Math.floor(Math.random()*LUCKY_KEYS.length)];
+  }
+  return SHAPE_KEYS[Math.floor(Math.random()*SHAPE_KEYS.length)];
+}
+// Look for a small piece that, if placed somewhere, would complete at least one line.
+function findHelpfulKey(){
+  const keys=[...LUCKY_KEYS].sort(()=>Math.random()-0.5);
+  for(const k of keys){
+    const cells=shapeCells(SHAPES[k]);
+    for(let r=0;r<GRID;r++)for(let c=0;c<GRID;c++){
+      if(canPlaceCells(cells,r,c) && wouldClear(cells,r,c)) return k;
+    }
+  }
+  return null;
+}
+function refillTray(){
+  pieces=[makePiece(pickPieceKey()),makePiece(pickPieceKey()),makePiece(pickPieceKey())];
+  renderTray();
+  checkGameOver();
+}
+function renderTray(){
+  const tray=document.getElementById("tray");tray.innerHTML="";
+  pieces.forEach((p,idx)=>{
+    if(p.used){const ph=document.createElement("div");ph.className="piece used";tray.appendChild(ph);return;}
+    const el=document.createElement("div");el.className="piece";el.dataset.idx=idx;
+    const rows=p.shape.length,cols=Math.max(...p.shape.map(r=>r.length));
+    el.style.gridTemplateColumns=`repeat(${cols},1fr)`;
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+      const pc=document.createElement("div");
+      if(p.shape[r]&&p.shape[r][c]){pc.className="pcell";pc.style.background=p.color;
+        if(p.heart){pc.style.position="relative";pc.innerHTML='<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;">♥</span>';}}
+      else pc.className="pcell empty";
+      el.appendChild(pc);
+    }
+    attachDrag(el,idx);
+    tray.appendChild(el);
+  });
+}
+
+/* =========================================================
+   DRAG & DROP (touch + mouse)
+========================================================= */
+let dragging=null; // {idx,piece,offset}
+function attachDrag(el,idx){
+  const start=(clientX,clientY)=>{
+    const p=pieces[idx]; if(!p||p.used)return;
+    dragging={idx,piece:p};
+    const dp=document.getElementById("dragPiece");
+    dp.style.display="grid";
+    const cols=Math.max(...p.shape.map(r=>r.length));
+    const size=cellPixel();
+    dp.style.gridTemplateColumns=`repeat(${cols},${size}px)`;
+    dp.innerHTML="";
+    for(let r=0;r<p.shape.length;r++)for(let c=0;c<cols;c++){
+      const d=document.createElement("div");
+      d.style.width=size+"px";d.style.height=size+"px";d.style.borderRadius="6px";
+      if(p.shape[r]&&p.shape[r][c]){d.style.background=p.color;
+        if(p.heart)d.innerHTML='<span style="display:flex;align-items:center;justify-content:center;height:100%;font-size:'+(size*0.6)+'px;">♥</span>';}
+      dp.appendChild(d);
+    }
+    moveDrag(clientX,clientY);
+    beep(440,0.05,"square",0.08);
+  };
+  el.addEventListener("mousedown",e=>{e.preventDefault();start(e.clientX,e.clientY);});
+  el.addEventListener("touchstart",e=>{e.preventDefault();const t=e.touches[0];start(t.clientX,t.clientY);},{passive:false});
+}
+function cellPixel(){
+  const b=document.getElementById("board");
+  return (b.clientWidth-16-4*(GRID-1))/GRID;
+}
+function moveDrag(x,y){
+  const dp=document.getElementById("dragPiece");
+  dp.style.left=x+"px"; dp.style.top=(y-70)+"px"; // lift above finger
+  const pos=hoverCell(x,y-70);
+  clearGhost();
+  if(pos){ showGhost(dragging.piece.cells,pos.r,pos.c); }
+}
+function hoverCell(x,y){
+  const b=document.getElementById("board").getBoundingClientRect();
+  const size=cellPixel(),gap=4,pad=8;
+  const relX=x-b.left-pad, relY=y-b.top-pad;
+  const c=Math.round(relX/(size+gap)); const r=Math.round(relY/(size+gap));
+  // anchor so the piece's top-left aligns near pointer
+  const piece=dragging.piece;
+  const minC=Math.min(...piece.cells.map(p=>p[1]));
+  const minR=Math.min(...piece.cells.map(p=>p[0]));
+  const ar=r-minR, ac=c-minC;
+  if(ar<-1||ac<-1||ar>GRID||ac>GRID)return null;
+  return {r:ar,c:ac};
+}
+function showGhost(cells,r,c){
+  const ok=canPlaceCells(cells,r,c);
+  cells.forEach(([dr,dc])=>{
+    const cc=cellAt(r+dr,c+dc);
+    if(cc)cc.classList.add(ok?"ghost":"invalid");
+  });
+}
+function clearGhost(){ document.querySelectorAll(".cell.ghost,.cell.invalid").forEach(c=>c.classList.remove("ghost","invalid")); }
+
+document.addEventListener("mousemove",e=>{ if(dragging)moveDrag(e.clientX,e.clientY); });
+document.addEventListener("touchmove",e=>{ if(dragging){e.preventDefault();const t=e.touches[0];moveDrag(t.clientX,t.clientY);} },{passive:false});
+document.addEventListener("mouseup",e=>endDrag(e.clientX,e.clientY));
+document.addEventListener("touchend",e=>{ if(dragging){const t=e.changedTouches[0];endDrag(t.clientX,t.clientY);} });
+
+function endDrag(x,y){
+  if(!dragging)return;
+  const dp=document.getElementById("dragPiece");dp.style.display="none";
+  const pos=hoverCell(x,y-70);
+  clearGhost();
+  if(pos && canPlaceCells(dragging.piece.cells,pos.r,pos.c)){
+    placePiece(dragging.idx,pos.r,pos.c);
+  }else{
+    beep(180,0.12,"sawtooth",0.08); // gentle "nope"
+  }
+  dragging=null;
+}
+
+/* =========================================================
+   PLACEMENT + LINE CLEARING
+========================================================= */
+function canPlaceCells(cells,r,c){
+  return cells.every(([dr,dc])=>{
+    const rr=r+dr,cc=c+dc;
+    return rr>=0&&rr<GRID&&cc>=0&&cc<GRID&&!board[rr][cc];
+  });
+}
+function wouldClear(cells,r,c){
+  // simulate
+  const temp=board.map(row=>row.slice());
+  cells.forEach(([dr,dc])=>temp[r+dr][c+dc]={});
+  for(let i=0;i<GRID;i++){
+    if(temp[i].every(x=>x))return true;
+    if(temp.every(row=>row[i]))return true;
+  }
+  return false;
+}
+function placePiece(idx,r,c){
+  const p=pieces[idx];
+  p.cells.forEach(([dr,dc])=>{ board[r+dr][c+dc]={color:p.color,heart:p.heart}; });
+  score+=p.cells.length;
+  p.used=true;
+  beep(523,0.08,"sine",0.12);
+  renderBoard();renderTray();
+  const cleared=clearLines();
+  if(cleared>0){
+    score+=cleared*10 + (cleared>1?cleared*10:0); // combo bonus
+    linesCleared+=cleared;
+    clearEvents++;
+    onClearEvent(cleared);
+  }
+  if(score>best){best=score;localStorage.setItem("blockLoveBest",best);}
+  updateHUD();
+  if(pieces.every(pp=>pp.used)) refillTray();
+  else checkGameOver();
+}
+
+function clearLines(){
+  const fullRows=[],fullCols=[];
+  for(let i=0;i<GRID;i++){
+    if(board[i].every(x=>x))fullRows.push(i);
+    if(board.every(row=>row[i]))fullCols.push(i);
+  }
+  const toClear=new Set();
+  fullRows.forEach(r=>{for(let c=0;c<GRID;c++)toClear.add(r+"-"+c);});
+  fullCols.forEach(c=>{for(let r=0;r<GRID;r++)toClear.add(r+"-"+c);});
+  if(toClear.size===0)return 0;
+  toClear.forEach(k=>{const[r,c]=k.split("-").map(Number);const cc=cellAt(r,c);if(cc)cc.classList.add("clearing");});
+  chord([659,784,988],0.35,0.12);
+  setTimeout(()=>{
+    toClear.forEach(k=>{const[r,c]=k.split("-").map(Number);board[r][c]=null;});
+    renderBoard();
+  },380);
+  return fullRows.length+fullCols.length;
+}
+
+/* =========================================================
+   PHASE 4/5/6 — SECRET MODE, WARMTH, WORD REVEAL
+========================================================= */
+function onClearEvent(cleared){
+  // Enter secret mode quietly
+  if(!secretMode && linesCleared>=SECRET_AFTER_LINES){
+    secretMode=true; // no announcement — she should just feel lucky
+  }
+  if(secretMode){
+    // slowly warm the atmosphere (Phase 5)
+    warmth=Math.min(1, warmth + 0.12);
+    applyWarmth();
+    // reveal words gradually (Phase 6)
+    if(clearEvents % WORD_EVERY_CLEARS === 0 && wordsRevealed<CONFIG.proposalWords.length){
+      revealWord();
+    }
+  }
+}
+function applyWarmth(){
+  // soften background toward warm rose/gold
+  const w=warmth;
+  const bg1=mix([27,16,48],[60,24,58],w), bg2=mix([42,22,80],[120,40,90],w);
+  document.body.style.background=`radial-gradient(1200px 800px at 50% -10%, rgb(${bg2.join(",")}), rgb(${bg1.join(",")}))`;
+}
+function mix(a,b,t){return a.map((v,i)=>Math.round(v+(b[i]-v)*t));}
+function revealWord(){
+  const chip=document.getElementById("word"+wordsRevealed);
+  if(chip){chip.classList.add("revealed");chord([880,1046],0.4,0.14);spawnHearts(3);}
+  wordsRevealed++;
+  if(wordsRevealed>=CONFIG.proposalWords.length){
+    setTimeout(startReveal,1600); // Phase 7 after last word
+  }
+}
+
+/* =========================================================
+   GAME OVER (rare, keeps it safe) — reshuffles instead of ending harshly
+========================================================= */
+function anyMove(){
+  for(const p of pieces){ if(p.used)continue;
+    for(let r=0;r<GRID;r++)for(let c=0;c<GRID;c++) if(canPlaceCells(p.cells,r,c))return true;
+  }
+  return false;
+}
+function checkGameOver(){
+  if(gameOver)return;
+  if(!anyMove()){
+    // Be kind: quietly clear a few random cells so the surprise can always complete.
+    toast("Lucky break! ✨");
+    let removed=0;
+    for(let r=GRID-1;r>=0&&removed<12;r--)for(let c=0;c<GRID&&removed<12;c++){
+      if(board[r][c]){board[r][c]=null;removed++;}
+    }
+    renderBoard();
+    if(!anyMove()) refillTray();
+  }
+}
+
+/* =========================================================
+   PHASE 7 — THE REVEAL
+========================================================= */
+function startReveal(){
+  if(musicTimer){/* keep music, swell it */} romanticSwell();
+  document.getElementById("revealName").textContent=CONFIG.herName;
+  document.getElementById("revealMsg").textContent=CONFIG.personalMessage;
+  go("revealScreen");
+  spawnHearts(12);
+}
+
+/* PHASE 8 — Yes / playful No */
+const yesBtn=document.getElementById("yesBtn");
+const noBtn=document.getElementById("noBtn");
+yesBtn.onclick=()=>{ celebrate(); };
+function dodge(){
+  const pad=20;
+  const maxX=window.innerWidth-noBtn.offsetWidth-pad;
+  const maxY=window.innerHeight-noBtn.offsetHeight-pad;
+  const x=Math.max(pad,Math.random()*maxX);
+  const y=Math.max(pad,Math.random()*maxY);
+  noBtn.style.position="fixed";
+  noBtn.style.left=x+"px";noBtn.style.top=y+"px";
+  const teases=["Nope 😄","Try again 😜","Too slow!","Catch me!","Are you sure? 🥺","Missed!"];
+  noBtn.textContent=teases[Math.floor(Math.random()*teases.length)];
+  beep(300,0.08,"square",0.08);
+}
+noBtn.addEventListener("mouseover",dodge);
+noBtn.addEventListener("touchstart",e=>{e.preventDefault();dodge();},{passive:false});
+noBtn.addEventListener("click",e=>{e.preventDefault();dodge();});
+
+/* =========================================================
+   PHASE 9 — CELEBRATION
+========================================================= */
+function celebrate(){
+  go("celebrateScreen");
+  romanticSwell();
+  chord([523,659,784,1046],0.6,0.16);
+  confettiBurst(4000);
+  const hi=setInterval(()=>spawnHearts(6),400);
+  setTimeout(()=>{
+    clearInterval(hi);
+    document.getElementById("toGalleryBtn").style.display="inline-block";
+  },4200);
+}
+document.getElementById("toGalleryBtn").onclick=buildGallery;
+
+/* =========================================================
+   PHASE 10 — MEMORY GALLERY
+========================================================= */
+let slideIdx=0, slideTimer=null;
+function buildGallery(){
+  const wrap=document.getElementById("slides");wrap.innerHTML="";
+  const dots=document.getElementById("galleryDots");dots.innerHTML="";
+  CONFIG.memories.forEach((m,i)=>{
+    const s=document.createElement("div");s.className="slide"+(i===0?" active":"");
+    const photo=document.createElement("div");photo.className="photo";
+    if(m.img)photo.innerHTML=`<img src="${m.img}" alt="">`; else photo.textContent=m.emoji;
+    const cap=document.createElement("div");cap.className="caption";cap.textContent=m.caption;
+    s.appendChild(photo);s.appendChild(cap);wrap.appendChild(s);
+    const dot=document.createElement("div");dot.className="dot"+(i===0?" active":"");
+    dot.onclick=()=>showSlide(i);dots.appendChild(dot);
+  });
+  go("galleryScreen");
+  slideIdx=0;
+  clearInterval(slideTimer);
+  slideTimer=setInterval(()=>showSlide((slideIdx+1)%CONFIG.memories.length),4500);
+  spawnHearts(6);
+}
+function showSlide(i){
+  slideIdx=i;
+  document.querySelectorAll("#slides .slide").forEach((s,idx)=>s.classList.toggle("active",idx===i));
+  document.querySelectorAll("#galleryDots .dot").forEach((d,idx)=>d.classList.toggle("active",idx===i));
+}
+
+/* =========================================================
+   FX — confetti + floating hearts (canvas)
+========================================================= */
+const fx=document.getElementById("fx");const fxc=fx.getContext("2d");
+let confetti=[];
+function sizeFx(){fx.width=innerWidth;fx.height=innerHeight;}
+sizeFx();addEventListener("resize",sizeFx);
+function confettiBurst(ms=3000){
+  const colors=["#ff5c8a","#ffd76b","#7ad0ff","#9b8cff","#7be2b3","#ff9bc0"];
+  for(let i=0;i<160;i++){
+    confetti.push({x:innerWidth/2,y:innerHeight/3,
+      vx:(Math.random()-0.5)*12,vy:Math.random()*-14-4,
+      g:0.35+Math.random()*0.2,size:6+Math.random()*8,
+      color:colors[i%colors.length],rot:Math.random()*6,vr:(Math.random()-0.5)*0.4,life:ms});
+  }
+  if(!confetti._running){confetti._running=true;requestAnimationFrame(confLoop);}
+}
+function confLoop(){
+  fxc.clearRect(0,0,fx.width,fx.height);
+  confetti=confetti.filter(p=>p.life>0&&p.y<innerHeight+40);
+  confetti.forEach(p=>{
+    p.vy+=p.g;p.x+=p.vx;p.y+=p.vy;p.rot+=p.vr;p.life-=16;
+    fxc.save();fxc.translate(p.x,p.y);fxc.rotate(p.rot);fxc.fillStyle=p.color;
+    fxc.fillRect(-p.size/2,-p.size/2,p.size,p.size*0.6);fxc.restore();
+  });
+  if(confetti.length){requestAnimationFrame(confLoop);}else{confetti._running=false;fxc.clearRect(0,0,fx.width,fx.height);}
+}
+function spawnHearts(n=5){
+  for(let i=0;i<n;i++){
+    const h=document.createElement("div");h.className="floatHeart";
+    h.textContent=["💖","💕","💗","❤️","💞"][Math.floor(Math.random()*5)];
+    h.style.left=Math.random()*innerWidth+"px";
+    h.style.bottom="-30px";
+    h.style.fontSize=(20+Math.random()*24)+"px";
+    h.style.animationDuration=(2.4+Math.random()*1.6)+"s";
+    document.body.appendChild(h);
+    setTimeout(()=>h.remove(),4200);
+  }
+}
+
+/* =========================================================
+   TOAST + OPTIONAL SECRETS
+========================================================= */
+let toastTimer=null;
+function toast(msg){
+  const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove("show"),2200);
+}
+// Secret: tap the logo 5x on the loading screen
+document.getElementById("logo").onclick=()=>{
+  logoTaps++;beep(600+logoTaps*40,0.05,"square",0.08);
+  if(logoTaps===5){ toast("💌 You found a secret: I'm so lucky to have you."); spawnHearts(8); logoTaps=0; }
+};
+// Secret: type "I love you" anywhere -> floating hearts
+addEventListener("keydown",e=>{
+  if(e.key&&e.key.length===1){typedBuffer=(typedBuffer+e.key).toLowerCase().slice(-20);}
+  if(typedBuffer.includes("i love you")){typedBuffer="";spawnHearts(20);toast("I love you too 💗");}
+});
+// Secret dev page: type "dev"
+addEventListener("keydown",e=>{
+  if(typedBuffer.endsWith("dev")){typedBuffer="";showOverlay("devScreen");}
+});
+// Stats button
+document.getElementById("statsBtn").onclick=()=>showOverlay("statsScreen");
+// Sound toggle
+document.getElementById("soundBtn").onclick=()=>{
+  soundOn=!soundOn;
+  document.getElementById("soundBtn").textContent=soundOn?"🔊":"🔇";
+  if(musicGain)musicGain.gain.value=soundOn?0.06:0;
+};
+
+/* =========================================================
+   BOOT
+========================================================= */
+runLoader();
+</script>
+</body>
+</html>
