@@ -60,7 +60,7 @@
   .rulelist .ic{font-size:22px;flex-shrink:0;width:28px;text-align:center;}
 
   /* Game */
-  #gameScreen{justify-content:flex-start;gap:10px;padding-top:max(14px,env(safe-area-inset-top));}
+  #gameScreen{justify-content:flex-start;gap:10px;padding-top:calc(56px + env(safe-area-inset-top));}
   .topbar{width:min(460px,94vw);display:flex;justify-content:space-between;gap:8px;margin-top:4px;}
   .stat{background:var(--card);border-radius:12px;padding:7px 14px;text-align:center;min-width:78px;box-shadow:var(--shadow);}
   .stat b{display:block;font-size:19px;line-height:1.1;}
@@ -186,7 +186,7 @@
   <section id="revealScreen" class="screen">
     <h1 id="revealName">💗</h1>
     <p class="love" id="revealMsg"></p>
-    <div class="bigq">Will you officially be my girlfriend?</div>
+    <div class="bigq" id="bigQ">Will you officially be my girlfriend?</div>
     <div class="choices">
       <button id="yesBtn" class="btn gold" style="font-size:22px;padding:16px 44px;">Yes 💍</button>
       <button id="noBtn" class="btn secondary">No</button>
@@ -195,7 +195,7 @@
 
   <!-- CELEBRATION -->
   <section id="celebrateScreen" class="screen">
-    <h1>She said YES! 🎉</h1>
+    <h1 id="celebrateTitle">She said YES! 🎉</h1>
     <p>You just made me the happiest person alive. 💖</p>
   </section>
 
@@ -244,7 +244,7 @@
    ❤️ CUSTOMIZE EVERYTHING HERE:
 ========================================================= */
 const CONFIG = {
-  herName: "💗",
+  herName: "Lehandé",
   personalMessage: "",
   proposalWords: ["Will","You","Be","My","Girlfriend?"],   // exactly 5 = the 5 final prizes
   // Level-1 prizes (flavor icons that "help" the next level):
@@ -593,8 +593,12 @@ function revealWords(){
 ========================================================= */
 function startReveal(){
   romanticSwell();document.body.classList.add("romantic");
-  document.getElementById("revealName").textContent=CONFIG.herName;
+  document.getElementById("revealName").textContent="💗";
   document.getElementById("revealMsg").textContent=CONFIG.personalMessage;
+  // Personalise the question with her name, e.g. "Lehandé, will you officially be my girlfriend?"
+  const name=(CONFIG.herName||"").trim();
+  const q = name ? (name+", will you officially be my girlfriend?") : "Will you officially be my girlfriend?";
+  document.getElementById("bigQ").textContent=q;
   go("revealScreen");spawnHearts(12);
 }
 const yesBtn=document.getElementById("yesBtn"),noBtn=document.getElementById("noBtn");
@@ -612,7 +616,10 @@ noBtn.addEventListener("click",e=>{e.preventDefault();dodge();});
 /* =========================================================
    CELEBRATION + GALLERY
 ========================================================= */
-function celebrate(){go("celebrateScreen");romanticSwell();chord([523,659,784,1046],0.6,0.16);confettiBurst(6000);
+function celebrate(){
+  const name=(CONFIG.herName||"").trim();
+  document.getElementById("celebrateTitle").textContent = name ? (name+" said YES! 🎉") : "She said YES! 🎉";
+  go("celebrateScreen");romanticSwell();chord([523,659,784,1046],0.6,0.16);confettiBurst(6000);
   // keep the celebration going with confetti + hearts
   setInterval(()=>spawnHearts(6),500);
   setInterval(()=>confettiBurst(3000),3500);}
