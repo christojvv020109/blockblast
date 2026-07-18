@@ -670,7 +670,26 @@ addEventListener("keydown",e=>{
   if(typedBuffer.includes("i love you")){typedBuffer="";spawnHearts(20);toast("I love you too 💗");}
   if(typedBuffer.includes("potato")||typedBuffer.includes("aartapel")){typedBuffer="";spawnPotatoes(16);toast("Aartapel mode activated 🥔");}
   if(typedBuffer.endsWith("dev")){typedBuffer="";showOverlay("devScreen");}
+  // 🔧 TEST SHORTCUT: type "end" (or press the "0" key) to jump straight to the reveal.
+  if(typedBuffer.endsWith("end")||e.key==="0"){typedBuffer="";jumpToEnd();}
 });
+// Hidden tap shortcut for phones: tap the top score bar (any stat box) 4 times quickly to skip to the reveal.
+let lvlTaps=0,lvlTapTimer=null;
+function countTap(e){
+  if(e&&e.cancelable)e.preventDefault();
+  lvlTaps++;clearTimeout(lvlTapTimer);lvlTapTimer=setTimeout(()=>lvlTaps=0,1500);
+  beep(500+lvlTaps*60,0.04,"square",0.06);
+  if(lvlTaps>=4){lvlTaps=0;jumpToEnd();}
+}
+document.querySelectorAll("#gameScreen .stat").forEach(box=>{
+  box.addEventListener("touchend",countTap,{passive:false});
+  box.addEventListener("click",countTap);
+});
+function jumpToEnd(){
+  gameBusy=true;                 // stop board interactions
+  toast("⏩ Skipping to the reveal…");
+  revealWords();                 // opens the 5 word-prizes, then the proposal
+}
 document.getElementById("statsBtn").onclick=()=>showOverlay("statsScreen");
 document.getElementById("soundBtn").onclick=()=>{soundOn=!soundOn;document.getElementById("soundBtn").textContent=soundOn?"🔊":"🔇";if(musicGain)musicGain.gain.value=soundOn?0.05:0;};
 
