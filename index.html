@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>Block of Love 💖</title>
+<title>Block.io</title>
 <style>
   :root{
     --bg1:#1b1030;
@@ -73,10 +73,15 @@
   .stat b{display:block;font-size:22px;line-height:1.1;}
   .stat span{font-size:11px;text-transform:uppercase;letter-spacing:1px;opacity:.7;}
 
-  .wordtrack{width:min(460px,94vw);display:flex;flex-wrap:wrap;gap:6px;justify-content:center;min-height:26px;}
-  .wordchip{padding:4px 12px;border-radius:999px;font-weight:700;font-size:15px;
-    background:rgba(255,255,255,.08);opacity:.25;transition:all .5s ease;}
-  .wordchip.revealed{opacity:1;background:linear-gradient(135deg,var(--accent),var(--gold));color:#3a1a2a;transform:scale(1.05);box-shadow:0 6px 16px rgba(255,92,138,.5);}
+  /* words drift up gently over the board, then fade — never sit at the top */
+  .floatWord{position:fixed;z-index:62;pointer-events:none;font-weight:800;
+    font-size:clamp(26px,8vw,44px);color:#fff;text-shadow:0 4px 16px rgba(255,92,138,.6);
+    background:linear-gradient(90deg,var(--accent),var(--gold));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+    animation:wordRise 2.6s ease-out forwards;}
+  @keyframes wordRise{0%{transform:translate(-50%,-50%) scale(.5);opacity:0;}
+    18%{opacity:1;transform:translate(-50%,-60%) scale(1.1);}
+    70%{opacity:1;transform:translate(-50%,-90%) scale(1);}
+    100%{opacity:0;transform:translate(-50%,-140%) scale(.9);}}
 
   #boardWrap{position:relative;width:min(460px,94vw);}
   #board{
@@ -102,7 +107,7 @@
 
   /* drag layer */
   #dragLayer{position:fixed;inset:0;pointer-events:none;z-index:50;}
-  #dragPiece{position:absolute;display:grid;gap:4px;transform:translate(-50%,-50%);opacity:.95;filter:drop-shadow(0 8px 16px rgba(0,0,0,.4));}
+  #dragPiece{position:absolute;display:grid;gap:4px;opacity:.95;filter:drop-shadow(0 10px 18px rgba(0,0,0,.45));transition:none;}
 
   /* Reveal */
   #revealScreen p.love{font-size:clamp(16px,4.2vw,20px);max-width:600px;}
@@ -177,7 +182,6 @@
       <div class="stat"><b id="bestVal">0</b><span>Best</span></div>
       <div class="stat"><b id="linesVal">0</b><span>Lines</span></div>
     </div>
-    <div class="wordtrack" id="wordTrack"></div>
     <div id="boardWrap"><div id="board"></div></div>
     <div id="tray"></div>
   </section>
@@ -393,7 +397,6 @@ function startGame(){
   best=parseInt(localStorage.getItem("blockLoveBest")||"0",10);
   document.getElementById("bestVal").textContent=best;
   buildBoardDOM();
-  buildWordTrack();
   refillTray();
   updateHUD();
   go("gameScreen");
@@ -423,13 +426,6 @@ function renderBoard(){
   }
 }
 
-function buildWordTrack(){
-  const t=document.getElementById("wordTrack");t.innerHTML="";
-  CONFIG.proposalWords.forEach((w,i)=>{
-    const c=document.createElement("div");c.className="wordchip";c.id="word"+i;c.textContent=w;
-    t.appendChild(c);
-  });
-}
 function updateHUD(){
   document.getElementById("scoreVal").textContent=score;
   document.getElementById("linesVal").textContent=linesCleared;
@@ -527,25 +523,37 @@ function cellPixel(){
   const b=document.getElementById("board");
   return (b.clientWidth-16-4*(GRID-1))/GRID;
 }
+// geometry of the piece currently being dragged
+function pieceGeom(p){
+  const size=cellPixel(),gap=4;
+  const cols=Math.max(...p.shape.map(r=>r.length));
+  const rows=p.shape.length;
+  return {size,gap,cols,rows,
+    w:cols*size+(cols-1)*gap,
+    h:rows*size+(rows-1)*gap};
+}
 function moveDrag(x,y){
   const dp=document.getElementById("dragPiece");
-  dp.style.left=x+"px"; dp.style.top=(y-70)+"px"; // lift above finger
-  const pos=hoverCell(x,y-70);
+  const p=dragging.piece;
+  const g=pieceGeom(p);
+  // centre the piece on the finger horizontally, lift it clear above the finger
+  const lift=g.size*1.1;
+  const left=x-g.w/2;
+  const top=y-lift-g.h;
+  dp.style.left=left+"px"; dp.style.top=top+"px";
+  dragging.left=left; dragging.top=top; // remember for the drop
+  const pos=cellFromTopLeft(left,top);
   clearGhost();
-  if(pos){ showGhost(dragging.piece.cells,pos.r,pos.c); }
+  if(pos){ showGhost(p.cells,pos.r,pos.c); }
 }
-function hoverCell(x,y){
+// map the piece's rendered top-left pixel to the nearest board cell (shape origin)
+function cellFromTopLeft(left,top){
   const b=document.getElementById("board").getBoundingClientRect();
   const size=cellPixel(),gap=4,pad=8;
-  const relX=x-b.left-pad, relY=y-b.top-pad;
-  const c=Math.round(relX/(size+gap)); const r=Math.round(relY/(size+gap));
-  // anchor so the piece's top-left aligns near pointer
-  const piece=dragging.piece;
-  const minC=Math.min(...piece.cells.map(p=>p[1]));
-  const minR=Math.min(...piece.cells.map(p=>p[0]));
-  const ar=r-minR, ac=c-minC;
-  if(ar<-1||ac<-1||ar>GRID||ac>GRID)return null;
-  return {r:ar,c:ac};
+  const c=Math.round((left-b.left-pad)/(size+gap));
+  const r=Math.round((top-b.top-pad)/(size+gap));
+  if(r<-2||c<-2||r>GRID+1||c>GRID+1)return null;
+  return {r,c};
 }
 function showGhost(cells,r,c){
   const ok=canPlaceCells(cells,r,c);
@@ -564,7 +572,7 @@ document.addEventListener("touchend",e=>{ if(dragging){const t=e.changedTouches[
 function endDrag(x,y){
   if(!dragging)return;
   const dp=document.getElementById("dragPiece");dp.style.display="none";
-  const pos=hoverCell(x,y-70);
+  const pos=cellFromTopLeft(dragging.left,dragging.top);
   clearGhost();
   if(pos && canPlaceCells(dragging.piece.cells,pos.r,pos.c)){
     placePiece(dragging.idx,pos.r,pos.c);
@@ -658,11 +666,21 @@ function applyWarmth(){
 }
 function mix(a,b,t){return a.map((v,i)=>Math.round(v+(b[i]-v)*t));}
 function revealWord(){
-  const chip=document.getElementById("word"+wordsRevealed);
-  if(chip){chip.classList.add("revealed");chord([880,1046],0.4,0.14);spawnHearts(3);}
+  const w=CONFIG.proposalWords[wordsRevealed];
+  if(w){
+    const el=document.createElement("div");
+    el.className="floatWord";el.textContent=w;
+    // rise from the centre of the board so it feels like it came from the game
+    const b=document.getElementById("board").getBoundingClientRect();
+    el.style.left=(b.left+b.width/2)+"px";
+    el.style.top=(b.top+b.height*0.55)+"px";
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(),2700);
+    chord([880,1046],0.4,0.14);spawnHearts(3);
+  }
   wordsRevealed++;
   if(wordsRevealed>=CONFIG.proposalWords.length){
-    setTimeout(startReveal,1600); // Phase 7 after last word
+    setTimeout(startReveal,2200); // Phase 7 after last word
   }
 }
 
