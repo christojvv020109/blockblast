@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>Block.io</title>
+<title>Block of Love 💖</title>
 <style>
   :root{
     --bg1:#1b1030;
@@ -280,7 +280,7 @@ const CONFIG = {
 /* ========================================================= */
 
 const GRID = 8;
-const SECRET_AFTER_LINES = 6;   // gameplay stays fully normal until this many lines cleared
+const SECRET_AFTER_LINES = 3;   // gameplay stays fully normal until this many lines cleared (kept low = easier)
 const WORD_EVERY_CLEARS   = 2;  // reveal a proposal word roughly every N clear-events after secret mode
 
 let board = [];        // GRID x GRID, null or color string
@@ -306,8 +306,9 @@ const SHAPES = {
 };
 const SHAPE_KEYS = Object.keys(SHAPES);
 
-/* Shapes we bias toward in secret mode: small, flexible pieces that let her
-   keep clearing easily ("an unusually lucky game"). */
+/* Small, forgiving shapes used most of the time so the game feels EASY.
+   The big/awkward shapes (bigL, plus, d4) only show up rarely. */
+const EASY_KEYS  = ["single","d2","d2v","d3","d3v","sq","corner"];
 const LUCKY_KEYS = ["single","d2","d2v","d3","d3v","sq","corner","L","J","T"];
 
 /* =========================================================
@@ -447,15 +448,20 @@ function makePiece(key){
   return { key, shape, cells:shapeCells(shape), color, heart: secretMode && Math.random()<Math.min(0.15+warmth*0.6,0.8), used:false };
 }
 function pickPieceKey(){
-  if(!secretMode) return SHAPE_KEYS[Math.floor(Math.random()*SHAPE_KEYS.length)];
-  // Secret mode: strongly favour small, flexible "lucky" shapes so she keeps clearing.
-  if(Math.random()<0.82){
-    // try to pick a piece that CAN currently be placed to complete a line
+  if(!secretMode){
+    // Normal mode is still gentle: mostly small, easy pieces; awkward ones are rare.
+    if(Math.random()<0.85) return EASY_KEYS[Math.floor(Math.random()*EASY_KEYS.length)];
+    return SHAPE_KEYS[Math.floor(Math.random()*SHAPE_KEYS.length)];
+  }
+  // Secret mode: almost always hand her something that fits + helps clear a line.
+  if(Math.random()<0.95){
     const helpful=findHelpfulKey();
     if(helpful) return helpful;
-    return LUCKY_KEYS[Math.floor(Math.random()*LUCKY_KEYS.length)];
+    const fits=findFittingKey();
+    if(fits) return fits;
+    return EASY_KEYS[Math.floor(Math.random()*EASY_KEYS.length)];
   }
-  return SHAPE_KEYS[Math.floor(Math.random()*SHAPE_KEYS.length)];
+  return LUCKY_KEYS[Math.floor(Math.random()*LUCKY_KEYS.length)];
 }
 // Look for a small piece that, if placed somewhere, would complete at least one line.
 function findHelpfulKey(){
@@ -467,6 +473,17 @@ function findHelpfulKey(){
     }
   }
   return null;
+}
+// Fallback: at least give a small piece that fits SOMEWHERE on the board right now.
+function findFittingKey(){
+  const keys=[...EASY_KEYS].sort(()=>Math.random()-0.5);
+  for(const k of keys){
+    const cells=shapeCells(SHAPES[k]);
+    for(let r=0;r<GRID;r++)for(let c=0;c<GRID;c++){
+      if(canPlaceCells(cells,r,c)) return k;
+    }
+  }
+  return "single"; // a single square fits almost anywhere
 }
 function refillTray(){
   pieces=[makePiece(pickPieceKey()),makePiece(pickPieceKey()),makePiece(pickPieceKey())];
@@ -695,16 +712,33 @@ function anyMove(){
 }
 function checkGameOver(){
   if(gameOver)return;
-  if(!anyMove()){
-    // Be kind: quietly clear a few random cells so the surprise can always complete.
-    toast("Lucky break! ✨");
-    let removed=0;
-    for(let r=GRID-1;r>=0&&removed<12;r--)for(let c=0;c<GRID&&removed<12;c++){
-      if(board[r][c]){board[r][c]=null;removed++;}
-    }
-    renderBoard();
-    if(!anyMove()) refillTray();
+  // If things are getting crowded, quietly free up space BEFORE she ever gets stuck.
+  const filled=board.flat().filter(Boolean).length;
+  if(filled > GRID*GRID*0.62){
+    clearBottomRows(2);
   }
+  if(!anyMove()){
+    // Absolute safety net: clear the board area needed so a move always exists.
+    toast("Lucky break! ✨");
+    clearBottomRows(4);
+    renderBoard();
+    if(!anyMove()){
+      // last resort: swap the tray for guaranteed-fitting easy pieces
+      pieces=[makePiece("single"),makePiece("d2"),makePiece("d2v")];
+      renderTray();
+    }
+  }
+}
+// Gently wipe the lowest N rows that contain blocks (keeps the game breathing).
+function clearBottomRows(n){
+  let done=0;
+  for(let r=GRID-1;r>=0 && done<n;r--){
+    if(board[r].some(Boolean)){
+      for(let c=0;c<GRID;c++)board[r][c]=null;
+      done++;
+    }
+  }
+  renderBoard();
 }
 
 /* =========================================================
