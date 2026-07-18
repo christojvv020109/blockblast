@@ -186,7 +186,7 @@
   <section id="revealScreen" class="screen">
     <h1 id="revealName">💗</h1>
     <p class="love" id="revealMsg"></p>
-    <div class="bigq" id="bigQ">Will you officially be my girlfriend?</div>
+    <div class="bigq" id="bigQ">Will you be mine?</div>
     <div class="choices">
       <button id="yesBtn" class="btn gold" style="font-size:22px;padding:16px 44px;">Yes 💍</button>
       <button id="noBtn" class="btn secondary">No</button>
@@ -245,8 +245,11 @@
 ========================================================= */
 const CONFIG = {
   herName: "Lehandé",
+  potatoName: "Aartapel 🥔",          // shown on the celebration screen
   personalMessage: "",
-  proposalWords: ["Will","You","Be","My","Girlfriend?"],   // exactly 5 = the 5 final prizes
+  // Exactly 5 prizes on the final level — they spell out the question:
+  proposalWords: ["Lehandé,","Will","You","Be","Mine"],
+  question: "Lehandé, will you be mine?",   // shown after the last prize opens
   // Level-1 prizes (flavor icons that "help" the next level):
   powerUps: [
     {icon:"🌟", name:"Bonus"},
@@ -301,7 +304,7 @@ function romanticSwell(){romantic=true;if(audio())musicGain.gain.linearRampToVal
 /* =========================================================
    LOADING
 ========================================================= */
-const loadMessages=["Loading assets…","Preparing the board…","Shuffling blocks…","Almost ready…"];
+const loadMessages=["Loading assets…","Preparing the board…","Peeling potatoes… 🥔","Shuffling blocks…","Almost ready…"];
 function runLoader(){
   const fill=document.getElementById("loadFill"),status=document.getElementById("loadStatus");
   let p=0,i=0;
@@ -346,7 +349,10 @@ function renderBoard(){
   for(let r=0;r<GRID;r++)for(let c=0;c<GRID;c++){
     const d=cellAt(r,c),v=board[r][c];
     d.classList.remove("filled","ghost","invalid");
-    if(v){d.classList.add("filled");d.style.background=v.color;}else d.style.background="";
+    if(v){d.classList.add("filled");d.style.background=v.color;
+      if(v.potato){d.style.display="flex";d.style.alignItems="center";d.style.justifyContent="center";d.style.fontSize="min(4.2vw,20px)";d.textContent="🥔";}
+      else{d.textContent="";d.style.fontSize="";}}
+    else{d.style.background="";d.textContent="";d.style.fontSize="";}
   }
 }
 function buildPrizeBar(){
@@ -368,7 +374,10 @@ function updateHUD(){
    PIECES (easy generation)
 ========================================================= */
 function shapeCells(s){const c=[];for(let r=0;r<s.length;r++)for(let k=0;k<s[r].length;k++)if(s[r][k])c.push([r,k]);return c;}
-function makePiece(key){const shape=SHAPES[key];return{key,shape,cells:shapeCells(shape),color:PALETTE[Math.floor(Math.random()*PALETTE.length)],used:false};}
+function makePiece(key){const shape=SHAPES[key];
+  // Rare, playful "potato block": a single square that shows a tiny 🥔 (private in-joke).
+  const potato = (key==="single" && Math.random()<0.14);
+  return{key,shape,cells:shapeCells(shape),color:potato?"#c68a3e":PALETTE[Math.floor(Math.random()*PALETTE.length)],potato,used:false};}
 function pickKey(){
   // Almost always hand over a piece that fits + ideally clears a line = easy & fast.
   if(Math.random()<0.9){
@@ -399,7 +408,9 @@ function renderTray(){
     const cols=Math.max(...p.shape.map(r=>r.length));el.style.gridTemplateColumns=`repeat(${cols},1fr)`;
     for(let r=0;r<p.shape.length;r++)for(let c=0;c<cols;c++){
       const pc=document.createElement("div");
-      if(p.shape[r]&&p.shape[r][c]){pc.className="pcell";pc.style.background=p.color;}else pc.className="pcell empty";
+      if(p.shape[r]&&p.shape[r][c]){pc.className="pcell";pc.style.background=p.color;
+        if(p.potato){pc.style.display="flex";pc.style.alignItems="center";pc.style.justifyContent="center";pc.style.fontSize="15px";pc.textContent="🥔";}}
+      else pc.className="pcell empty";
       el.appendChild(pc);
     }
     attachDrag(el,idx);tray.appendChild(el);
@@ -420,7 +431,9 @@ function attachDrag(el,idx){
     dp.style.gridTemplateColumns=`repeat(${cols},${size}px)`;dp.innerHTML="";
     for(let r=0;r<p.shape.length;r++)for(let c=0;c<cols;c++){
       const d=document.createElement("div");d.style.width=size+"px";d.style.height=size+"px";d.style.borderRadius="6px";
-      if(p.shape[r]&&p.shape[r][c])d.style.background=p.color;dp.appendChild(d);
+      if(p.shape[r]&&p.shape[r][c]){d.style.background=p.color;
+        if(p.potato){d.style.display="flex";d.style.alignItems="center";d.style.justifyContent="center";d.style.fontSize=(size*0.65)+"px";d.textContent="🥔";}}
+      dp.appendChild(d);
     }
     moveDrag(cx,cy);beep(440,0.05,"square",0.08);
   };
@@ -486,8 +499,13 @@ function canPlace(cells,r,c){return cells.every(([dr,dc])=>{const rr=r+dr,cc=c+d
 function wouldClear(cells,r,c){const t=board.map(row=>row.slice());cells.forEach(([dr,dc])=>t[r+dr][c+dc]={});for(let i=0;i<GRID;i++){if(t[i].every(x=>x))return true;if(t.every(row=>row[i]))return true;}return false;}
 function placePiece(idx,r,c){
   const p=pieces[idx];
-  p.cells.forEach(([dr,dc])=>{board[r+dr][c+dc]={color:p.color};});
+  p.cells.forEach(([dr,dc])=>{board[r+dr][c+dc]={color:p.color,potato:p.potato};});
   score+=p.cells.length;p.used=true;beep(523,0.08,"sine",0.12);
+  if(p.potato){ // playful in-joke reactions
+    const lines=["A wild Aartapel appeared! 🥔","+1 potato 🥔","Potato power! 🥔","Aartapel approves 🥔"];
+    toast(lines[Math.floor(Math.random()*lines.length)]);
+    spawnPotatoes(3);beep(660,0.1,"triangle",0.1);
+  }
   renderBoard();renderTray();
   const cleared=clearLines();
   if(cleared>0){score+=cleared*10+(cleared>1?cleared*10:0);addLines(cleared);}
@@ -595,10 +613,7 @@ function startReveal(){
   romanticSwell();document.body.classList.add("romantic");
   document.getElementById("revealName").textContent="💗";
   document.getElementById("revealMsg").textContent=CONFIG.personalMessage;
-  // Personalise the question with her name, e.g. "Lehandé, will you officially be my girlfriend?"
-  const name=(CONFIG.herName||"").trim();
-  const q = name ? (name+", will you officially be my girlfriend?") : "Will you officially be my girlfriend?";
-  document.getElementById("bigQ").textContent=q;
+  document.getElementById("bigQ").textContent=CONFIG.question;
   go("revealScreen");spawnHearts(12);
 }
 const yesBtn=document.getElementById("yesBtn"),noBtn=document.getElementById("noBtn");
@@ -614,10 +629,10 @@ noBtn.addEventListener("touchstart",e=>{e.preventDefault();dodge();},{passive:fa
 noBtn.addEventListener("click",e=>{e.preventDefault();dodge();});
 
 /* =========================================================
-   CELEBRATION + GALLERY
+   CELEBRATION
 ========================================================= */
 function celebrate(){
-  const name=(CONFIG.herName||"").trim();
+  const name=(CONFIG.potatoName||"").trim();
   document.getElementById("celebrateTitle").textContent = name ? (name+" said YES! 🎉") : "She said YES! 🎉";
   go("celebrateScreen");romanticSwell();chord([523,659,784,1046],0.6,0.16);confettiBurst(6000);
   // keep the celebration going with confetti + hearts
@@ -640,6 +655,9 @@ function confLoop(){fxc.clearRect(0,0,fx.width,fx.height);confetti=confetti.filt
 function spawnHearts(n=5){for(let i=0;i<n;i++){const h=document.createElement("div");h.className="floatHeart";
   h.textContent=["💖","💕","💗","❤️","💞"][Math.floor(Math.random()*5)];h.style.left=Math.random()*innerWidth+"px";h.style.bottom="-30px";
   h.style.fontSize=(20+Math.random()*24)+"px";h.style.animationDuration=(2.4+Math.random()*1.6)+"s";document.body.appendChild(h);setTimeout(()=>h.remove(),4200);}}
+function spawnPotatoes(n=4){for(let i=0;i<n;i++){const h=document.createElement("div");h.className="floatHeart";h.textContent="🥔";
+  h.style.left=Math.random()*innerWidth+"px";h.style.bottom="-30px";h.style.fontSize=(20+Math.random()*22)+"px";
+  h.style.animationDuration=(2.4+Math.random()*1.6)+"s";document.body.appendChild(h);setTimeout(()=>h.remove(),4200);}}
 
 /* =========================================================
    TOAST + SECRETS
@@ -650,6 +668,7 @@ document.getElementById("logo").onclick=()=>{logoTaps++;beep(600+logoTaps*40,0.0
 addEventListener("keydown",e=>{
   if(e.key&&e.key.length===1)typedBuffer=(typedBuffer+e.key).toLowerCase().slice(-20);
   if(typedBuffer.includes("i love you")){typedBuffer="";spawnHearts(20);toast("I love you too 💗");}
+  if(typedBuffer.includes("potato")||typedBuffer.includes("aartapel")){typedBuffer="";spawnPotatoes(16);toast("Aartapel mode activated 🥔");}
   if(typedBuffer.endsWith("dev")){typedBuffer="";showOverlay("devScreen");}
 });
 document.getElementById("statsBtn").onclick=()=>showOverlay("statsScreen");
